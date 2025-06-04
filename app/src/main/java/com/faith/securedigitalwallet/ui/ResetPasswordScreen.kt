@@ -1,5 +1,7 @@
 package com.faith.securedigitalwallet.ui
 
+import android.content.Context
+import androidx.activity.ComponentActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
@@ -11,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import com.faith.securedigitalwallet.data.PasswordManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,53 +25,19 @@ fun ResetPasswordScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = context as? FragmentActivity
 
     var showPasswordPrompt by remember { mutableStateOf(false) }
-    var isBiometricChecked by remember { mutableStateOf(false) } // to control UI
-
-    val biometricPrompt = remember {
-        val executor = ContextCompat.getMainExecutor(context)
-        BiometricPrompt(context as androidx.fragment.app.FragmentActivity, executor,
-            object : BiometricPrompt.AuthenticationCallback() {
-
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    showPasswordPrompt = true
-                    isBiometricChecked = true
-                }
-
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    when (errorCode) {
-                        BiometricPrompt.ERROR_USER_CANCELED,
-                        BiometricPrompt.ERROR_NEGATIVE_BUTTON -> {
-                            // User cancelled: navigate back immediately
-                            onBack()
-                        }
-                        else -> {
-                            // Other errors: fallback to password prompt
-                            showPasswordPrompt = true
-                            isBiometricChecked = true
-                        }
-                    }
-                }
-
-                override fun onAuthenticationFailed() {
-                    // Optional: Show message or retry behavior
-                }
-            })
-    }
-
-    val promptInfo = remember {
-        BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Authenticate to reset password")
-            .setSubtitle("Use your device screen lock or biometric")
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            .build()
-    }
+    var isBiometricChecked by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        if (activity == null) {
+            // fallback immediately if activity is not valid
+            showPasswordPrompt = true
+            isBiometricChecked = true
+            return@LaunchedEffect
+        }
+
         val biometricManager = BiometricManager.from(context)
         val canAuthenticate = biometricManager.canAuthenticate(
             BiometricManager.Authenticators.BIOMETRIC_STRONG or
@@ -76,9 +45,41 @@ fun ResetPasswordScreen(
         )
 
         if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
+            val executor = ContextCompat.getMainExecutor(context)
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Authenticate to reset password")
+                .setSubtitle("Use your device screen lock or biometric")
+                .setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+                .build()
+
+            val biometricPrompt = BiometricPrompt(activity, executor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        showPasswordPrompt = true
+                        isBiometricChecked = true
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        when (errorCode) {
+                            BiometricPrompt.ERROR_USER_CANCELED,
+                            BiometricPrompt.ERROR_NEGATIVE_BUTTON -> onBack()
+                            else -> {
+                                showPasswordPrompt = true
+                                isBiometricChecked = true
+                            }
+                        }
+                    }
+
+                    override fun onAuthenticationFailed() {
+                        // Optional: show retry option
+                    }
+                })
+
             biometricPrompt.authenticate(promptInfo)
         } else {
-            // No biometric: fallback to password prompt directly
             showPasswordPrompt = true
             isBiometricChecked = true
         }
