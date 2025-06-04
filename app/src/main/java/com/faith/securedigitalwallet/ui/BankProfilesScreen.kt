@@ -1,6 +1,7 @@
 package com.faith.securedigitalwallet.ui
 
 import android.content.Context
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.biometric.BiometricManager
@@ -94,7 +95,6 @@ fun BankProfilesScreen(
             isDeleting = false
         }
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
