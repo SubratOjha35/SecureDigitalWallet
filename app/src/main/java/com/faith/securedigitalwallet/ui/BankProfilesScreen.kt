@@ -1,6 +1,7 @@
 package com.faith.securedigitalwallet.ui
 
 import android.content.Context
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.biometric.BiometricManager
@@ -100,13 +101,20 @@ fun BankProfilesScreen(
             })
     }
 
-    val promptInfo = remember {
-        BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Authenticate to reset password")
-            .setSubtitle("Use your device screen lock or biometric to reset master password")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
-            .build()
-    }
+    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Authenticate to reset password")
+        .setSubtitle("Use your device screen lock or biometric to reset master password")
+        .apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+            } else {
+                setNegativeButtonText("Use screen lock")
+            }
+        }
+        .build()
 
     Scaffold(
         topBar = {

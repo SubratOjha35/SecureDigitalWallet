@@ -1,8 +1,9 @@
-// MainActivity.kt
 package com.faith.securedigitalwallet
 
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import com.faith.securedigitalwallet.ui.theme.SecureBankAppTheme
 
 class MainActivity : AppCompatActivity() {
     private var screen by mutableStateOf<Screen>(Screen.Start)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setFlags(
@@ -32,16 +34,13 @@ class MainActivity : AppCompatActivity() {
         setContent {
             SecureBankAppTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-
                     when (screen) {
                         Screen.Start -> StartScreen(onNavigate = { screen = it })
                         Screen.BankProfiles -> MainScreen(db.userDao(), db.bankProfileDao())
                         Screen.WebLoginProfiles -> {
-                            // TODO: Add WebLoginProfilesScreen
                             Text("Web Login Profiles Screen (Coming soon!)")
                         }
                         Screen.LicProfiles -> {
-                            // TODO: Add LicProfilesScreen
                             Text("LIC Profiles Screen (Coming soon!)")
                         }
                         Screen.ResetPassword -> ResetPasswordScreen(onBack = { screen = Screen.Start })
@@ -50,6 +49,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    @Deprecated("This method has been deprecated in favor of using the\n      {@link OnBackPressedDispatcher} via {@link #getOnBackPressedDispatcher()}.\n      The OnBackPressedDispatcher controls how back button events are dispatched\n      to one or more {@link OnBackPressedCallback} objects.")
     override fun onBackPressed() {
         if (screen != Screen.Start) {
             screen = Screen.Start
