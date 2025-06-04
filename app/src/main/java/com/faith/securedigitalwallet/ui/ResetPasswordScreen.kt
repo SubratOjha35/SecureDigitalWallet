@@ -1,14 +1,5 @@
 package com.faith.securedigitalwallet.ui
 
-<<<<<<< Updated upstream
-=======
-import android.app.Activity
-import android.app.KeyguardManager
-import android.content.Context
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
->>>>>>> Stashed changes
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
