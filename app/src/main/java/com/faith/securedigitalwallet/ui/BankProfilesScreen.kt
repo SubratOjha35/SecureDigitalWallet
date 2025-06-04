@@ -60,8 +60,7 @@ fun BankProfilesScreen(
 
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var masterPassword by remember { mutableStateOf<String?>(null) }
-
-    var showResetPasswordDialog by remember { mutableStateOf(false) }
+    
     var isBiometricAuthAvailable by remember { mutableStateOf(false) }
     var passwordAction by remember { mutableStateOf<PasswordAction?>(null) }
 
@@ -85,6 +84,7 @@ fun BankProfilesScreen(
             isDeleting = false
         }
     }
+<<<<<<< Updated upstream
 
     val biometricPrompt = remember {
         val executor = ContextCompat.getMainExecutor(context)
@@ -108,6 +108,8 @@ fun BankProfilesScreen(
             .build()
     }
 
+=======
+>>>>>>> Stashed changes
     Scaffold(
         topBar = {
             TopAppBar(
@@ -115,15 +117,6 @@ fun BankProfilesScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    if (masterPassword != null && isBiometricAuthAvailable) {
-                        IconButton(onClick = {
-                            biometricPrompt.authenticate(promptInfo)
-                        }) {
-                            Icon(Icons.Filled.Lock, contentDescription = "Reset Master Password")
-                        }
                     }
                 }
             )
