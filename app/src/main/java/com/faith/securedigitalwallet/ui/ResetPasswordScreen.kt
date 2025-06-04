@@ -1,7 +1,13 @@
 package com.faith.securedigitalwallet.ui
 
+import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
@@ -30,6 +36,20 @@ fun ResetPasswordScreen(
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var isBiometricChecked by remember { mutableStateOf(false) }
 
+    // ActivityResultLauncher to handle device credential prompt result
+    val deviceCredentialLauncher = rememberLauncherForActivityResult(
+        contract = StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // User authenticated with device credential successfully
+            showPasswordPrompt = true
+            isBiometricChecked = true
+        } else {
+            // User cancelled or failed
+            onBack()
+        }
+    }
+
     LaunchedEffect(Unit) {
         if (activity == null) {
             // fallback immediately if activity is not valid
@@ -38,17 +58,34 @@ fun ResetPasswordScreen(
             return@LaunchedEffect
         }
 
+        // On Android 9 (API 28) or below, use device credential prompt directly
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            val intent = keyguardManager.createConfirmDeviceCredentialIntent(
+                "Authenticate to reset password",
+                "Use your screen lock"
+            )
+            if (intent != null) {
+                deviceCredentialLauncher.launch(intent)
+            } else {
+                // No device lock set, fallback to password prompt directly
+                showPasswordPrompt = true
+                isBiometricChecked = true
+            }
+            return@LaunchedEffect
+        }
+
+        // For Android 10+ use BiometricPrompt with device credential fallback
         val biometricManager = BiometricManager.from(context)
         val canAuthenticate = biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
         )
 
         if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
             val executor = ContextCompat.getMainExecutor(context)
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Authenticate to reset password")
-                .setSubtitle("Use your device screen lock or biometric")
+                .setSubtitle("Use your fingerprint or screen lock")
                 .setAllowedAuthenticators(
                     BiometricManager.Authenticators.BIOMETRIC_STRONG or
                             BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -74,12 +111,13 @@ fun ResetPasswordScreen(
                     }
 
                     override fun onAuthenticationFailed() {
-                        // Optional: show retry option
+                        // Optional: handle retry if needed
                     }
                 })
 
             biometricPrompt.authenticate(promptInfo)
         } else {
+            // No biometric or device credential available, fallback
             showPasswordPrompt = true
             isBiometricChecked = true
         }
