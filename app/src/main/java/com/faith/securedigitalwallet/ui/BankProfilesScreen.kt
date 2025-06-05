@@ -175,7 +175,6 @@ fun BankProfilesScreen(
                                 }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Delete")
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Delete")
                                 }
                             }
                         }
