@@ -9,13 +9,19 @@ plugins {
 android {
     namespace = "com.faith.securedigitalwallet"
     compileSdk = 35
+    applicationVariants.all {
+        outputs.all {
+            val outputImpl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            outputImpl.outputFileName = "SecureDigitalWallet.apk"
+        }
+    }
 
     defaultConfig {
         applicationId = "com.faith.securedigitalwallet"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
