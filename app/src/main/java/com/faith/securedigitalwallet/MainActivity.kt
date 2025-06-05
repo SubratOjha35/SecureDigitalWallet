@@ -14,16 +14,22 @@ import androidx.room.Room
 import com.faith.securedigitalwallet.data.AppDatabase
 import com.faith.securedigitalwallet.ui.*
 import com.faith.securedigitalwallet.ui.theme.SecureBankAppTheme
+import com.faith.securedigitalwallet.util.GitHubUpdateHelper
 
 class MainActivity : AppCompatActivity() {
     private var screen by mutableStateOf<Screen>(Screen.Start)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Prevent screenshots / screen recording
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
         )
+
+        ensureStoragePermission()
+        GitHubUpdateHelper.checkForUpdate(this)
 
         val db = Room.databaseBuilder(
             applicationContext,
@@ -56,6 +62,32 @@ class MainActivity : AppCompatActivity() {
             screen = Screen.Start
         } else {
             super.onBackPressed()
+        }
+    }
+
+    private fun ensureStoragePermission() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            val permission = android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            if (checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(permission), 1001)
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001 &&
+            (grantResults.isEmpty() || grantResults[0] != android.content.pm.PackageManager.PERMISSION_GRANTED)
+        ) {
+            Toast.makeText(
+                this,
+                "Storage permission is required to download updates",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 }
