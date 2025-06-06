@@ -5,7 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.faith.securedigitalwallet.util.GitHubHelper
+import com.faith.securedigitalwallet.util.GitHubUpdateHelper
 
 class DownloadCompleteReceiver : BroadcastReceiver() {
 
@@ -25,10 +25,10 @@ class DownloadCompleteReceiver : BroadcastReceiver() {
             val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
             Log.d(TAG, "Received download ID: $downloadId")
 
-            val expectedId = GitHubHelper.getExpectedDownloadId(context)
+            val expectedId = GitHubUpdateHelper.getExpectedDownloadId(context)
             if (downloadId == expectedId) {
                 Log.d(TAG, "Download ID matches expected. Proceeding to install.")
-                GitHubHelper.installApk(context)
+                GitHubUpdateHelper.installApk(context)
             } else {
                 Log.w(TAG, "Download ID does not match expected. Ignoring.")
             }

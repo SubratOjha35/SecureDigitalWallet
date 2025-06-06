@@ -6,25 +6,22 @@ import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.io.File
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
-object GitHubHelper {
+object GitHubUpdateHelper {
     private const val TAG = "GitHubUpdateHelper"
     private const val GITHUB_REPO = "SubratOjha35/SecureDigitalWallet"
     private const val APK_FILE_NAME = "SecureDigitalWallet.apk"
 
     private const val PREFS_NAME = "update_prefs"
     private const val KEY_DOWNLOAD_ID = "expected_download_id"
-
-    private var downloadCompleteReceiver: DownloadCompleteReceiver? = null
 
     private fun saveExpectedDownloadId(context: Context, downloadId: Long) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -33,12 +30,21 @@ object GitHubHelper {
             .apply()
     }
 
-    internal fun getExpectedDownloadId(context: Context): Long {
+    fun getExpectedDownloadId(context: Context): Long {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getLong(KEY_DOWNLOAD_ID, -1L)
     }
 
-    fun checkForUpdate(context: Context) {
+    /**
+     * Checks GitHub for the latest release APK.
+     * Calls onUpdateComplete if no update or after successful download.
+     * Calls onUpdateFailed on any failure.
+     */
+    fun checkForUpdate(
+        context: Context,
+        onUpdateComplete: () -> Unit = {},
+        onUpdateFailed: () -> Unit = {}
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
@@ -63,25 +69,34 @@ object GitHubHelper {
                     val currentVersion = getCurrentVersion(context)
 
                     if (apkUrl != null && isNewerVersion(latestVersion, currentVersion)) {
-                        CoroutineScope(Dispatchers.Main).launch {
+                        withContext(Dispatchers.Main) {
                             Toast.makeText(
                                 context,
                                 "Update available: $currentVersion → $latestVersion",
                                 Toast.LENGTH_LONG
                             ).show()
-                            startDownload(context.applicationContext, apkUrl)
+                            startDownloadAndInstall(context, apkUrl, onUpdateComplete, onUpdateFailed)
                         }
+                    } else {
+                        withContext(Dispatchers.Main) { onUpdateComplete() }
                     }
                 } else {
                     Log.w(TAG, "GitHub API request failed: ${connection.responseCode}")
+                    withContext(Dispatchers.Main) { onUpdateFailed() }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error checking for update", e)
+                withContext(Dispatchers.Main) { onUpdateFailed() }
             }
         }
     }
 
-    private fun startDownload(context: Context, apkUrl: String) {
+    private fun startDownloadAndInstall(
+        context: Context,
+        apkUrl: String,
+        onUpdateComplete: () -> Unit,
+        onUpdateFailed: () -> Unit
+    ) {
         val apkFile = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
             APK_FILE_NAME
@@ -93,7 +108,6 @@ object GitHubHelper {
         }
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-
         val request = DownloadManager.Request(apkUrl.toUri()).apply {
             setTitle("Downloading Update")
             setDescription("SecureDigitalWallet update")
@@ -110,10 +124,28 @@ object GitHubHelper {
         try {
             val downloadId = downloadManager.enqueue(request)
             saveExpectedDownloadId(context, downloadId)
-            Toast.makeText(context, "Downloading update...", Toast.LENGTH_SHORT).show()
+
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(ctx: Context?, intent: Intent?) {
+                    val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) ?: -1
+                    if (id == downloadId) {
+                        context.unregisterReceiver(this)
+                        installApk(context)
+                        onUpdateComplete()
+                    }
+                }
+            }
+
+            ContextCompat.registerReceiver(
+                context,
+                receiver,
+                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Download failed", e)
             Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show()
+            onUpdateFailed()
         }
     }
 
@@ -165,34 +197,16 @@ object GitHubHelper {
 
             context.startActivity(intent)
 
-            // Schedule deletion of the APK file
             CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    Thread.sleep(5000)
-                    if (apkFile.exists()) {
-                        apkFile.delete()
-                        Log.d(TAG, "APK file deleted after install")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error deleting APK post-install", e)
+                delay(5000)
+                if (apkFile.exists()) {
+                    apkFile.delete()
+                    Log.d(TAG, "APK file deleted after install")
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch installer", e)
             Toast.makeText(context, "Unable to install update", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private class DownloadCompleteReceiver(
-        private val onDownloadComplete: (Long) -> Unit
-    ) : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
-                val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                if (downloadId != -1L) {
-                    onDownloadComplete(downloadId)
-                }
-            }
         }
     }
 }
