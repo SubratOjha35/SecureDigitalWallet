@@ -1,12 +1,12 @@
 package com.faith.securedigitalwallet.util
 
 import android.app.DownloadManager
-import android.content.*
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import kotlinx.coroutines.*
@@ -15,19 +15,29 @@ import java.io.File
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
+sealed class UpdateState {
+    object Checking : UpdateState()
+    object Downloading : UpdateState()
+    object Completed : UpdateState()
+    object Failed : UpdateState()
+    object Idle : UpdateState()
+}
+
 object GitHubUpdateHelper {
     private const val TAG = "GitHubUpdateHelper"
     private const val GITHUB_REPO = "SubratOjha35/SecureDigitalWallet"
     private const val APK_FILE_NAME = "SecureDigitalWallet.apk"
-
     private const val PREFS_NAME = "update_prefs"
     private const val KEY_DOWNLOAD_ID = "expected_download_id"
 
     private fun saveExpectedDownloadId(context: Context, downloadId: Long) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putLong(KEY_DOWNLOAD_ID, downloadId)
-            .apply()
+            .edit().putLong(KEY_DOWNLOAD_ID, downloadId).apply()
+    }
+
+    private fun clearExpectedDownloadId(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().remove(KEY_DOWNLOAD_ID).apply()
     }
 
     fun getExpectedDownloadId(context: Context): Long {
@@ -35,18 +45,16 @@ object GitHubUpdateHelper {
             .getLong(KEY_DOWNLOAD_ID, -1L)
     }
 
-    /**
-     * Checks GitHub for the latest release APK.
-     * Calls onUpdateComplete if no update or after successful download.
-     * Calls onUpdateFailed on any failure.
-     */
     fun checkForUpdate(
         context: Context,
+        onStateChanged: (UpdateState) -> Unit,
         onUpdateComplete: () -> Unit = {},
-        onUpdateFailed: () -> Unit = {}
+        onUpdateFailed: () -> Unit = {},
+        launchInstaller: (Intent) -> Unit
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                onStateChanged(UpdateState.Checking)
                 val apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
                 val connection = URL(apiUrl).openConnection() as HttpsURLConnection
                 connection.connect()
@@ -75,18 +83,34 @@ object GitHubUpdateHelper {
                                 "Update available: $currentVersion → $latestVersion",
                                 Toast.LENGTH_LONG
                             ).show()
-                            startDownloadAndInstall(context, apkUrl, onUpdateComplete, onUpdateFailed)
+                            startDownloadAndInstall(
+                                context,
+                                apkUrl,
+                                onUpdateComplete,
+                                onUpdateFailed,
+                                onStateChanged,
+                                launchInstaller
+                            )
                         }
                     } else {
-                        withContext(Dispatchers.Main) { onUpdateComplete() }
+                        withContext(Dispatchers.Main) {
+                            onStateChanged(UpdateState.Completed)
+                            onUpdateComplete()
+                        }
                     }
                 } else {
                     Log.w(TAG, "GitHub API request failed: ${connection.responseCode}")
-                    withContext(Dispatchers.Main) { onUpdateFailed() }
+                    withContext(Dispatchers.Main) {
+                        onStateChanged(UpdateState.Failed)
+                        onUpdateFailed()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error checking for update", e)
-                withContext(Dispatchers.Main) { onUpdateFailed() }
+                withContext(Dispatchers.Main) {
+                    onStateChanged(UpdateState.Failed)
+                    onUpdateFailed()
+                }
             }
         }
     }
@@ -95,17 +119,16 @@ object GitHubUpdateHelper {
         context: Context,
         apkUrl: String,
         onUpdateComplete: () -> Unit,
-        onUpdateFailed: () -> Unit
+        onUpdateFailed: () -> Unit,
+        onStateChanged: (UpdateState) -> Unit,
+        launchInstaller: (Intent) -> Unit
     ) {
         val apkFile = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
             APK_FILE_NAME
         )
 
-        if (apkFile.exists()) {
-            Log.d(TAG, "Deleting old APK: ${apkFile.absolutePath}")
-            apkFile.delete()
-        }
+        if (apkFile.exists()) apkFile.delete()
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val request = DownloadManager.Request(apkUrl.toUri()).apply {
@@ -124,28 +147,107 @@ object GitHubUpdateHelper {
         try {
             val downloadId = downloadManager.enqueue(request)
             saveExpectedDownloadId(context, downloadId)
+            onStateChanged(UpdateState.Downloading)
 
-            val receiver = object : BroadcastReceiver() {
-                override fun onReceive(ctx: Context?, intent: Intent?) {
-                    val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) ?: -1
-                    if (id == downloadId) {
-                        context.unregisterReceiver(this)
-                        installApk(context)
-                        onUpdateComplete()
+            CoroutineScope(Dispatchers.IO).launch {
+                var checkCount = 0
+                while (checkCount++ < 15) {
+                    delay(2000)
+
+                    val query = DownloadManager.Query().setFilterById(downloadId)
+                    val cursor = downloadManager.query(query)
+
+                    if (cursor != null && cursor.moveToFirst()) {
+                        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                        when (status) {
+                            DownloadManager.STATUS_SUCCESSFUL -> {
+                                cursor.close()
+                                withContext(Dispatchers.Main) {
+                                    installApk(context, onStateChanged, launchInstaller)
+                                }
+                                return@launch
+                            }
+                            DownloadManager.STATUS_FAILED -> {
+                                cursor.close()
+                                withContext(Dispatchers.Main) {
+                                    onStateChanged(UpdateState.Failed)
+                                    onUpdateFailed()
+                                }
+                                return@launch
+                            }
+                        }
+                        cursor.close()
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            onStateChanged(UpdateState.Failed)
+                            onUpdateFailed()
+                        }
+                        return@launch
                     }
+                }
+
+                withContext(Dispatchers.Main) {
+                    onStateChanged(UpdateState.Failed)
+                    onUpdateFailed()
                 }
             }
 
-            ContextCompat.registerReceiver(
-                context,
-                receiver,
-                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-                ContextCompat.RECEIVER_NOT_EXPORTED
-            )
         } catch (e: Exception) {
             Log.e(TAG, "Download failed", e)
             Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show()
+            onStateChanged(UpdateState.Failed)
             onUpdateFailed()
+        }
+    }
+
+    fun installApk(
+        context: Context,
+        onStateChanged: (UpdateState) -> Unit = {},
+        launchInstaller: (Intent) -> Unit
+    ) {
+        val apkFile = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            APK_FILE_NAME
+        )
+
+        if (!apkFile.exists()) {
+            Toast.makeText(context, "Update file missing, please retry.", Toast.LENGTH_SHORT).show()
+            onStateChanged(UpdateState.Failed)
+            return
+        }
+
+        try {
+            val apkUri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider",
+                apkFile
+            )
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+
+            launchInstaller(intent)
+            clearExpectedDownloadId(context)
+
+            CoroutineScope(Dispatchers.Main).launch {
+                delay(5000)
+                onStateChanged(UpdateState.Completed)
+            }
+
+            CoroutineScope(Dispatchers.IO).launch {
+                delay(10000)
+                if (apkFile.exists()) {
+                    apkFile.delete()
+                    Log.d(TAG, "APK file deleted after install")
+                }
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch installer", e)
+            Toast.makeText(context, "Unable to install update", Toast.LENGTH_SHORT).show()
+            onStateChanged(UpdateState.Failed)
         }
     }
 
@@ -170,43 +272,5 @@ object GitHubUpdateHelper {
             if (l < c) return false
         }
         return false
-    }
-
-    fun installApk(context: Context) {
-        val apkFile = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            APK_FILE_NAME
-        )
-
-        if (!apkFile.exists()) {
-            Toast.makeText(context, "Update file missing, please retry.", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        try {
-            val apkUri: Uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.provider",
-                apkFile
-            )
-
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(apkUri, "application/vnd.android.package-archive")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-            }
-
-            context.startActivity(intent)
-
-            CoroutineScope(Dispatchers.IO).launch {
-                delay(5000)
-                if (apkFile.exists()) {
-                    apkFile.delete()
-                    Log.d(TAG, "APK file deleted after install")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch installer", e)
-            Toast.makeText(context, "Unable to install update", Toast.LENGTH_SHORT).show()
-        }
     }
 }
