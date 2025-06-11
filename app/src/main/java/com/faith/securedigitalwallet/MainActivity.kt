@@ -9,13 +9,16 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.room.Room
@@ -23,16 +26,18 @@ import com.faith.securedigitalwallet.data.AppDatabase
 import com.faith.securedigitalwallet.ui.*
 import com.faith.securedigitalwallet.ui.theme.SecureBankAppTheme
 import com.faith.securedigitalwallet.util.GitHubUpdateHelper
+import com.faith.securedigitalwallet.util.UpdateState
 
 class MainActivity : AppCompatActivity() {
 
     private var screen by mutableStateOf<Screen>(Screen.Start)
-    private var updateCheckCompleted by mutableStateOf(false)
+    private var updateState by mutableStateOf<UpdateState>(UpdateState.Checking)
+
+    private lateinit var apkInstallLauncher: androidx.activity.result.ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Prevent screenshots for security
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
@@ -44,49 +49,53 @@ class MainActivity : AppCompatActivity() {
             "securebank-db"
         ).build()
 
+        // Register launcher before setContent
+        apkInstallLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            // Regardless of result, reset the update state
+            updateState = UpdateState.Completed
+        }
+
         setContent {
             SecureBankAppTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    if (!updateCheckCompleted) {
-                        // Check for update first
-                        LaunchedEffect(Unit) {
-                            // Request storage permission on older Android versions
-                            requestStoragePermissionIfNeeded()
-
-                            if (canInstallUnknownApps()) {
-                                GitHubUpdateHelper.checkForUpdate(
-                                    context = this@MainActivity,
-                                    onUpdateComplete = { updateCheckCompleted = true },
-                                    onUpdateFailed = {
-                                        updateCheckCompleted = true
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            "Update check failed",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                )
-                            } else {
-                                requestInstallPermission()
-                                updateCheckCompleted = true
+                    when (updateState) {
+                        is UpdateState.Checking -> LoadingScreen("Checking for updates…")
+                        is UpdateState.Downloading -> LoadingScreen("Waiting for download…")
+                        else -> {
+                            when (screen) {
+                                Screen.Start -> StartScreen(onNavigate = { screen = it })
+                                Screen.BankProfiles -> MainScreen(db.userDao(), db.bankProfileDao())
+                                Screen.WebLoginProfiles -> Text("Web Login Profiles Screen (Coming soon!)")
+                                Screen.LicProfiles -> Text("LIC Profiles Screen (Coming soon!)")
+                                Screen.ResetPassword -> ResetPasswordScreen(onBack = { screen = Screen.Start })
                             }
                         }
+                    }
 
-                        // Show a loading indicator while checking updates
-                        Box(
-                            Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    } else {
-                        // After update check complete, show normal app screens
-                        when (screen) {
-                            Screen.Start -> StartScreen(onNavigate = { screen = it })
-                            Screen.BankProfiles -> MainScreen(db.userDao(), db.bankProfileDao())
-                            Screen.WebLoginProfiles -> Text("Web Login Profiles Screen (Coming soon!)")
-                            Screen.LicProfiles -> Text("LIC Profiles Screen (Coming soon!)")
-                            Screen.ResetPassword -> ResetPasswordScreen(onBack = { screen = Screen.Start })
+                    LaunchedEffect(Unit) {
+                        requestStoragePermissionIfNeeded()
+                        if (canInstallUnknownApps()) {
+                            GitHubUpdateHelper.checkForUpdate(
+                                context = this@MainActivity,
+                                onStateChanged = { updateState = it },
+                                onUpdateComplete = {
+                                    updateState = UpdateState.Completed
+                                },
+                                onUpdateFailed = {
+                                    updateState = UpdateState.Failed
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Update check failed",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                },
+                                launchInstaller = { intent ->
+                                    apkInstallLauncher.launch(intent)
+                                }
+                            )
+                        } else {
+                            requestInstallPermission()
+                            updateState = UpdateState.Completed
                         }
                     }
                 }
@@ -106,11 +115,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             val permission = Manifest.permission.WRITE_EXTERNAL_STORAGE
             if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                // Request permission and suspend until result
                 ActivityCompat.requestPermissions(this, arrayOf(permission), 1001)
-                // Note: Ideally, handle the callback onRequestPermissionsResult to know when granted
-                // For Compose, you can consider Accompanist Permissions library or similar
-                // Here, just a simple request, no waiting implemented
             }
         }
     }
@@ -132,6 +137,20 @@ class MainActivity : AppCompatActivity() {
                 "Please allow installing unknown apps to enable updates.",
                 Toast.LENGTH_LONG
             ).show()
+        }
+    }
+}
+
+@Composable
+fun LoadingScreen(message: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(message)
         }
     }
 }
