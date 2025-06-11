@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.faith.securedigitalwallet.util.GitHubUpdateHelper
-import com.faith.securedigitalwallet.util.UpdateState
 
 class DownloadCompleteReceiver : BroadcastReceiver() {
 
