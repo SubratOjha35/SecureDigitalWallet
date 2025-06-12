@@ -12,11 +12,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.platform.LocalContext
+import com.faith.securedigitalwallet.data.UserDocDao
+import com.faith.securedigitalwallet.data.UserDocument
 
 
 @Composable
-fun AddUserDialog(
-    userDao: UserDao,
+fun AddUserDialogDoc(
+    userDocDao: UserDocDao,
     onDismiss: () -> Unit,
     onUserAdded: () -> Unit
 ) {
@@ -51,7 +53,7 @@ fun AddUserDialog(
                 }
 
                 CoroutineScope(Dispatchers.IO).launch {
-                    val exists = userDao.userExists(userName.trim())
+                    val exists = userDocDao.userExists(userName.trim())
                     if (exists) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(
@@ -61,7 +63,7 @@ fun AddUserDialog(
                             ).show()
                         }
                     } else {
-                        userDao.insertUser(User(name = userName.trim()))
+                        userDocDao.insertUser(UserDocument(name = userName.trim()))
                         withContext(Dispatchers.Main) {
                             onUserAdded()
                             onDismiss()
