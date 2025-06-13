@@ -3,11 +3,7 @@ package com.faith.securedigitalwallet.ui
 import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +20,10 @@ fun DocumentCard(
     onView: () -> Unit,
     onEdit: () -> Unit,
     onShare: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onCaptureImage: () -> Unit,
+    onPickFromGallery: () -> Unit,
+    onUploadPdf: () -> Unit
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -72,12 +71,21 @@ fun DocumentCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = label, style = MaterialTheme.typography.titleMedium)
-                    if (filePath == null) {
-                        Spacer(Modifier.width(8.dp))
-                        IconButton(onClick = onEdit) {
-                            Icon(Icons.Default.PhotoCamera, contentDescription = "Capture $label")
+                Text(text = label, style = MaterialTheme.typography.titleMedium)
+
+                if (filePath == null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onCaptureImage) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Capture Image")
+                        }
+                        IconButton(onClick = onPickFromGallery) {
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = "Pick from Gallery")
+                        }
+                        IconButton(onClick = onUploadPdf) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = "Upload PDF")
                         }
                     }
                 }
