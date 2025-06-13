@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- For update APKs in public Downloads folder -->
     <external-path
         name="download"
         path="Download/" />
+
+    <!-- For user document images inside app-private storage -->
+    <external-files-path
+        name="doc"
+        path="doc/" />
+
 </paths>

@@ -27,6 +27,7 @@ fun PasswordPromptDialog(
     fun validatePassword(pw: String): String? {
         if (pw.length < 8) return "Password must be at least 8 characters"
         if (!pw.any { it.isUpperCase() }) return "Password must contain at least one uppercase letter"
+        if (!pw.any { it.isLowerCase() }) return "Password must contain at least one lowercase letter"
         if (!pw.any { it.isDigit() }) return "Password must contain at least one number"
         if (!pw.any { !it.isLetterOrDigit() }) return "Password must contain at least one special character"
         return null
@@ -63,13 +64,20 @@ fun PasswordPromptDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                val validation = validatePassword(password)
-                if (validation != null) {
-                    validationError = validation
-                    showError = true
-                } else {
-                    onPasswordEntered(password)
+                if (isSettingPassword) {
+                    val validation = validatePassword(password)
+                    if (validation != null) {
+                        validationError = validation
+                        showError = true
+                        return@TextButton
+                    }
                 }
+                if (password.isBlank()) {
+                    validationError = "Password cannot be empty"
+                    showError = true
+                    return@TextButton
+                }
+                onPasswordEntered(password)
             }) {
                 Text(if (isSettingPassword) "Set" else "Confirm")
             }

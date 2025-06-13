@@ -6,4 +6,5 @@ sealed class Screen {
     object WebLoginProfiles : Screen()
     object LicProfiles : Screen()
     object ResetPassword : Screen()
+    object UserDocument : Screen()
 }

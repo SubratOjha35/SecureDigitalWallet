@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
                                 Screen.WebLoginProfiles -> Text("Web Login Profiles Screen (Coming soon!)")
                                 Screen.LicProfiles -> Text("LIC Profiles Screen (Coming soon!)")
                                 Screen.ResetPassword -> ResetPasswordScreen(onBack = { screen = Screen.Start })
+                                Screen.UserDocument -> MainScreenDoc(db.userDocDao(), db.userDocFilesDao())
                             }
                         }
                     }

@@ -63,5 +63,15 @@ fun StartScreen(onNavigate: (Screen) -> Unit) {
         ) {
             Text("LIC Profiles")
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // New User Documents Button
+        Button(
+            onClick = { onNavigate(Screen.UserDocument) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("User Documents")
+        }
     }
 }

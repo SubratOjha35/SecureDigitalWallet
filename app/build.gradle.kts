@@ -21,7 +21,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "1.6.0"
+        versionName = "1.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -89,4 +89,6 @@ dependencies {
     implementation ("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
     implementation ("net.zetetic:android-database-sqlcipher:4.5.4")
     implementation ("androidx.sqlite:sqlite:2.1.0")
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("com.google.code.gson:gson:2.10.1")
 }
