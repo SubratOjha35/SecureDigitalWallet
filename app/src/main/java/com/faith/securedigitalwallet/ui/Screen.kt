@@ -7,4 +7,5 @@ sealed class Screen {
     object LicProfiles : Screen()
     object ResetPassword : Screen()
     object UserDocument : Screen()
+    object Help : Screen()
 }

@@ -37,12 +37,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+/*
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
         )
-
+*/
         val db = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java,
@@ -69,6 +69,7 @@ class MainActivity : AppCompatActivity() {
                                 Screen.LicProfiles -> Text("LIC Profiles Screen (Coming soon!)")
                                 Screen.ResetPassword -> ResetPasswordScreen(onBack = { screen = Screen.Start })
                                 Screen.UserDocument -> MainScreenDoc(db.userDocDao(), db.userDocFilesDao())
+                                Screen.Help ->  HelpScreen(onBack = { screen = Screen.Start })
                             }
                         }
                     }
