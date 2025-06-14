@@ -37,6 +37,8 @@ fun UserListScreenDoc(
     val users by userDocDao.getAllUsers().collectAsState(initial = emptyList())
 
     var deletingUser by remember { mutableStateOf<UserDocument?>(null) }
+    var selectedUser by remember { mutableStateOf<UserDocument?>(null) }
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordError by remember { mutableStateOf<String?>(null) }
@@ -90,7 +92,10 @@ fun UserListScreenDoc(
                                     color = Color(0xFF1A73E8),
                                     textDecoration = TextDecoration.Underline,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.clickable { onUserSelected(user) }
+                                    modifier = Modifier.clickable {
+                                        selectedUser = user
+                                        showPasswordDialog = true
+                                    }
                                 )
                             }
                             Row {
@@ -139,6 +144,7 @@ fun UserListScreenDoc(
                 onDismiss = {
                     showPasswordDialog = false
                     deletingUser = null
+                    selectedUser = null
                     passwordError = null
                 },
                 errorMessage = passwordError,
@@ -146,15 +152,26 @@ fun UserListScreenDoc(
                     CoroutineScope(Dispatchers.IO).launch {
                         val actualPassword = PasswordManager.getMasterPassword(context)
                         if (enteredPassword == actualPassword) {
+                            withContext(Dispatchers.Main) {
+                                passwordError = null
+                                showPasswordDialog = false
+                            }
+
                             deletingUser?.let { userToDelete ->
                                 userDocDao.deleteUser(userToDelete)
                                 withContext(Dispatchers.Main) {
                                     onUserDeleted(userToDelete)
-                                    showPasswordDialog = false
                                     deletingUser = null
-                                    passwordError = null
                                 }
                             }
+
+                            selectedUser?.let { userToSelect ->
+                                withContext(Dispatchers.Main) {
+                                    onUserSelected(userToSelect)
+                                    selectedUser = null
+                                }
+                            }
+
                         } else {
                             withContext(Dispatchers.Main) {
                                 passwordError = "Incorrect master password"
