@@ -119,9 +119,7 @@ fun UserDocumentsScreen(
                     currentLabel = label
                     showEditDialog = true
                 },
-                onShare = {
-                    path?.let { shareFile(context, it) }
-                },
+                onShare = { path?.let { shareFile(context, it) } },
                 onDelete = {
                     scope.launch {
                         val updated = doc?.let {
@@ -156,18 +154,25 @@ fun UserDocumentsScreen(
             )
         }
 
-        customDocs.forEach { (label, path) ->
+        // Show all existing and new custom document labels
+        val trimmedLabel = newDocLabel.trim()
+        val allCustomLabels = buildSet {
+            addAll(customDocs.keys)
+            if (trimmedLabel.isNotBlank()) add(trimmedLabel)
+        }
+
+        allCustomLabels.forEach { label ->
+            val path = customDocs[label]
+
             DocumentCard(
                 label = label,
                 filePath = path,
-                onView = { launchGalleryView(context, path) },
+                onView = { path?.let { launchGalleryView(context, it) } },
                 onEdit = {
                     currentLabel = label
                     showEditDialog = true
                 },
-                onShare = {
-                    path?.let { shareFile(context, it) }
-                },
+                onShare = { path?.let { shareFile(context, it) } },
                 onDelete = {
                     scope.launch {
                         val updated = doc?.copy(
@@ -179,18 +184,21 @@ fun UserDocumentsScreen(
                     }
                 },
                 onCaptureImage = {
+                    currentLabel = label
                     val uri = createImageFile(context, label)
                     photoUri = uri
-                    currentLabel = label
                     cameraLauncher.launch(uri)
+                    newDocLabel = ""
                 },
                 onPickFromGallery = {
                     currentLabel = label
                     galleryLauncher.launch("image/*")
+                    newDocLabel = ""
                 },
                 onUploadPdf = {
                     currentLabel = label
                     pdfPickerLauncher.launch("application/pdf")
+                    newDocLabel = ""
                 }
             )
         }
@@ -204,39 +212,6 @@ fun UserDocumentsScreen(
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(8.dp))
-
-        val trimmedLabel = newDocLabel.trim()
-        val isLabelValid = trimmedLabel.isNotEmpty() && !customDocs.containsKey(trimmedLabel)
-
-        if (isLabelValid) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = {
-                    currentLabel = trimmedLabel
-                    val uri = createImageFile(context, trimmedLabel)
-                    photoUri = uri
-                    cameraLauncher.launch(uri)
-                    newDocLabel = ""
-                }) {
-                    Text("Capture Image")
-                }
-
-                Button(onClick = {
-                    currentLabel = trimmedLabel
-                    galleryLauncher.launch("image/*")
-                    newDocLabel = ""
-                }) {
-                    Text("Pick from Gallery")
-                }
-
-                Button(onClick = {
-                    currentLabel = trimmedLabel
-                    pdfPickerLauncher.launch("application/pdf")
-                    newDocLabel = ""
-                }) {
-                    Text("Upload PDF")
-                }
-            }
-        }
 
         if (showEditDialog && currentLabel != null) {
             EditOptionsDialog(
