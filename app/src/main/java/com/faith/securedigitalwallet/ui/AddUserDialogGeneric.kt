@@ -2,21 +2,19 @@
 package com.faith.securedigitalwallet.ui
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import com.faith.securedigitalwallet.data.User
-import com.faith.securedigitalwallet.data.UserDao
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.foundation.layout.Column
-import androidx.compose.ui.platform.LocalContext
-
 
 @Composable
-fun AddUserDialog(
-    userDao: UserDao,
+fun <T> AddUserDialogGeneric(
+    checkUserExists: suspend (String) -> Boolean,
+    insertUser: suspend (String) -> Unit,
     onDismiss: () -> Unit,
     onUserAdded: () -> Unit
 ) {
@@ -51,7 +49,8 @@ fun AddUserDialog(
                 }
 
                 CoroutineScope(Dispatchers.IO).launch {
-                    val exists = userDao.userExists(userName.trim())
+                    val trimmed = userName.trim()
+                    val exists = checkUserExists(trimmed)
                     if (exists) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(
@@ -61,7 +60,7 @@ fun AddUserDialog(
                             ).show()
                         }
                     } else {
-                        userDao.insertUser(User(name = userName.trim()))
+                        insertUser(trimmed)
                         withContext(Dispatchers.Main) {
                             onUserAdded()
                             onDismiss()

@@ -16,22 +16,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import com.faith.securedigitalwallet.data.UserDocument
-import com.faith.securedigitalwallet.data.UserDocumentFiles
-import com.faith.securedigitalwallet.data.UserDocFilesDao
+import com.faith.securedigitalwallet.data.DocumentProfile
+import com.faith.securedigitalwallet.data.DocumentProfileDao
 import com.faith.securedigitalwallet.util.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
+import com.faith.securedigitalwallet.data.User
 
 @Composable
-fun UserDocumentsScreen(
-    user: UserDocument,
-    userDocFilesDao: UserDocFilesDao
+fun DocumentProfileScreen(
+    user: User,
+    userDocFilesDao: DocumentProfileDao
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var doc by remember { mutableStateOf<UserDocumentFiles?>(null) }
+    var doc by remember { mutableStateOf<DocumentProfile?>(null) }
     var currentLabel by remember { mutableStateOf<String?>(null) }
     var photoUri by remember { mutableStateOf<Uri?>(null) }
     var newDocLabel by remember { mutableStateOf("") }
@@ -111,7 +111,7 @@ fun UserDocumentsScreen(
                 else -> null
             }
 
-            DocumentCard(
+            DocumentEntry(
                 label = label,
                 filePath = path,
                 onView = { launchGalleryView(context, path) },
@@ -164,7 +164,7 @@ fun UserDocumentsScreen(
         allCustomLabels.forEach { label ->
             val path = customDocs[label]
 
-            DocumentCard(
+            DocumentEntry(
                 label = label,
                 filePath = path,
                 onView = { path?.let { launchGalleryView(context, it) } },

@@ -4,16 +4,16 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
-import com.faith.securedigitalwallet.data.UserDocumentFiles
+import com.faith.securedigitalwallet.data.DocumentProfile
 import java.io.File
 
 fun updateDocPath(
-    doc: UserDocumentFiles?,
+    doc: DocumentProfile?,
     label: String,
     newPath: String,
     userId: Int
-): UserDocumentFiles {
-    return (doc ?: UserDocumentFiles(userId = userId)).let { original ->
+): DocumentProfile {
+    return (doc ?: DocumentProfile(userId = userId)).let { original ->
         when (label) {
             "Aadhaar" -> original.copy(aadhaarPath = newPath)
             "PAN Card" -> original.copy(panCardPath = newPath)
