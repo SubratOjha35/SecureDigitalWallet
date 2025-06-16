@@ -64,11 +64,11 @@ class MainActivity : AppCompatActivity() {
                         else -> {
                             when (screen) {
                                 Screen.Start -> StartScreen(onNavigate = { screen = it })
-                                Screen.BankProfiles -> MainScreen(db.userDao(), db.bankProfileDao())
+                                Screen.BankProfiles -> MainScreenBank(db.userDao(), db.bankProfileDao())
                                 Screen.WebLoginProfiles -> Text("Web Login Profiles Screen (Coming soon!)")
                                 Screen.LicProfiles -> Text("LIC Profiles Screen (Coming soon!)")
                                 Screen.ResetPassword -> ResetPasswordScreen(onBack = { screen = Screen.Start })
-                                Screen.UserDocument -> MainScreenDoc(db.userDocDao(), db.userDocFilesDao())
+                                Screen.UserDocument -> MainScreenDoc(db.userDao(), db.docProfileDao())
                                 Screen.Help ->  HelpScreen(onBack = { screen = Screen.Start })
                             }
                         }

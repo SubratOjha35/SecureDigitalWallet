@@ -4,23 +4,21 @@ import androidx.compose.runtime.*
 import com.faith.securedigitalwallet.data.*
 
 @Composable
-fun MainScreenDoc(userDocDao: UserDocDao, userDocFilesDao: UserDocFilesDao) {
-    var selectedUser by remember { mutableStateOf<UserDocument?>(null) }
-    var showAddUserDialog by remember { mutableStateOf(false) }
+fun MainScreenDoc(userDao: UserDao, userDocFilesDao: DocumentProfileDao) {
+    var selectedUser by remember { mutableStateOf<User?>(null) }
 
     if (selectedUser == null) {
-        UserListScreenDoc(
-            userDocDao = userDocDao,
+        UserScreen(
+            userDao = userDao,
             onUserSelected = { selectedUser = it },
             onUserDeleted = { deletedUser ->
                 if (selectedUser == deletedUser) {
                     selectedUser = null
                 }
-            },
-            onAddUser = { showAddUserDialog = true }
+            }
         )
     } else {
-        UserDocumentsScreen(
+        DocumentProfileScreen(
             user = selectedUser!!,
             userDocFilesDao = userDocFilesDao
         )

@@ -18,8 +18,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.faith.securedigitalwallet.data.PasswordManager
-import com.faith.securedigitalwallet.data.UserDocument
-import com.faith.securedigitalwallet.data.UserDocDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,17 +25,18 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserListScreenDoc(
-    userDocDao: UserDocDao,
-    onUserSelected: (UserDocument) -> Unit,
-    onUserDeleted: (UserDocument) -> Unit,
-    onAddUser: () -> Unit
+fun <T> UserListScreenGeneric(
+    usersFlow: State<List<T>>,
+    onDeleteUserConfirmed: suspend (T) -> Unit,
+    onUserSelected: suspend (T) -> Unit,
+    userName: (T) -> String,
+    addUserDialogContent: @Composable (onDismiss: () -> Unit, onUserAdded: () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
-    val users by userDocDao.getAllUsers().collectAsState(initial = emptyList())
+    val users by usersFlow
 
-    var deletingUser by remember { mutableStateOf<UserDocument?>(null) }
-    var selectedUser by remember { mutableStateOf<UserDocument?>(null) }
+    var deletingUser by remember { mutableStateOf<T?>(null) }
+    var selectedUser by remember { mutableStateOf<T?>(null) }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
@@ -88,7 +87,7 @@ fun UserListScreenDoc(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = user.name,
+                                    text = userName(user),
                                     color = Color(0xFF1A73E8),
                                     textDecoration = TextDecoration.Underline,
                                     fontWeight = FontWeight.Medium,
@@ -114,6 +113,7 @@ fun UserListScreenDoc(
             }
         }
 
+        // Confirm delete dialog
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
@@ -138,6 +138,7 @@ fun UserListScreenDoc(
             )
         }
 
+        // Master password prompt
         if (showPasswordDialog) {
             PasswordPromptDialog(
                 isSettingPassword = false,
@@ -157,17 +158,16 @@ fun UserListScreenDoc(
                                 showPasswordDialog = false
                             }
 
-                            deletingUser?.let { userToDelete ->
-                                userDocDao.deleteUser(userToDelete)
+                            deletingUser?.let {
+                                onDeleteUserConfirmed(it)
                                 withContext(Dispatchers.Main) {
-                                    onUserDeleted(userToDelete)
                                     deletingUser = null
                                 }
                             }
 
-                            selectedUser?.let { userToSelect ->
+                            selectedUser?.let {
+                                onUserSelected(it)
                                 withContext(Dispatchers.Main) {
-                                    onUserSelected(userToSelect)
                                     selectedUser = null
                                 }
                             }
@@ -182,11 +182,11 @@ fun UserListScreenDoc(
             )
         }
 
+        // ✅ Add user dialog
         if (showAddUserDialog) {
-            AddUserDialogDoc(
-                userDocDao = userDocDao,
-                onDismiss = { showAddUserDialog = false },
-                onUserAdded = { showAddUserDialog = false }
+            addUserDialogContent(
+                { showAddUserDialog = false },
+                { showAddUserDialog = false }
             )
         }
     }
